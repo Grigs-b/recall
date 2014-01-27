@@ -28,50 +28,71 @@ class CallHistoryDaily(luigi.Task):
         con.close()
         
 class CallHistoryLast5WeeksByDay(luigi.Task):
+    host = 'ec2-54-211-246-117.compute-1.amazonaws.com'
+    port = 9160
+    keyspace = 'inovadata'
+    group = 'support'
+    
     today = date.today()
     interval = timedelta(days=7)
-    weeks = 5   #make it N weeks and change to param
+    weeks = 2   #make it N weeks and change to param
     #python is so lovely
     dates = [ (today-(index*interval)).isoformat() for index in range(weeks) ]
-    dates = [today]
     
     def requires(self):
-        return [CallHistoryDaily(date) for date in self.dates]
+        return [CallHistoryDaily(self.host, self.port, self.keyspace, date, self.group) for date in self.dates]
     
     def output(self):
-        return luigi.LocalTarget('output/calls_offered_5weeks_%s.json' % self.dates[-1])
+        return luigi.LocalTarget('output/calls_offered_5weeks_%s.json' % self.dates[0])
     
     def run(self):
-        results = []
+        results = {}
+        values = {}
         for input in self.input():
             day = ''   
-            values = {}
+            
             with input.open('r') as f:
                 for line in f:
                     date, value = line.strip().split()
                     metric_date = datetime.strptime(date, '%Y-%m-%dT%H:%M:%S')
-                    hour = metric_date.hour
-                    half_hour = (metric_date.minute // 30) * 30 #gives us either 30 or 0
-                    bucket = '{0}:{1}'.format(hour, half_hour)
+                    
                     day = metric_date.date().isoformat()
+                    if day not in values.keys():
+                        values[day] = {}
+                    
+                    interval_hour = metric_date.hour
+                    half_hour = (metric_date.minute // 30) * 30 #gives us either 30 or 0
+                    t = time(hour=interval_hour, minute=half_hour)
+                    bucket = t.strftime('%H:%M')
+                    
                     try:
                         values[day][bucket]['raw'].append(int(value))
                     except KeyError:
-                        values[day] = {}
+                        print('key error on bucket %s' % bucket)
                         values[day][bucket] = {}
                         values[day][bucket]['raw'] = []
                         values[day][bucket]['raw'].append(int(value))
                         #please dont hate me...
-                    
-            for bucket in values[day].keys():
-                interval = values[day][bucket]['raw']
-                values[day][bucket]['mean'] = numpy.mean(interval)
-                values[day][bucket]['median'] = numpy.median(interval)
-                values[day][bucket]['q1'] = numpy.percentile(interval, 25)
-                values[day][bucket]['q3'] = numpy.percentile(interval, 75)
-                values[day][bucket]['min'] = min(interval)
-                values[day][bucket]['max'] = max(interval)
-            results.append(values)
+        
+        
+        for interval in values[day].keys():
+            print('-------')
+            print(interval)
+            interval_calls = []
+            results[interval] = {}
+            print(values.keys())
+            for each_day in values.keys():
+                raw_interval = values[each_day][interval]['raw']
+                #want the count of the number of call events in each interval more than their actual value
+                print(len(raw_interval))
+                interval_calls.append(len(raw_interval)) 
+            results[interval]['mean'] = numpy.mean(interval_calls)
+            results[interval]['median'] = numpy.median(interval_calls)
+            results[interval]['q1'] = numpy.percentile(interval_calls, 25)
+            results[interval]['q3'] = numpy.percentile(interval_calls, 75)
+            results[interval]['min'] = min(interval_calls)
+            results[interval]['max'] = max(interval_calls)
+            
                     
         with self.output().open('w') as out:
             out.write(json.dumps(results))
