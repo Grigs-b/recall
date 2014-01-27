@@ -68,7 +68,6 @@ class CallHistoryLast5WeeksByDay(luigi.Task):
                     try:
                         values[day][bucket]['raw'].append(int(value))
                     except KeyError:
-                        print('key error on bucket %s' % bucket)
                         values[day][bucket] = {}
                         values[day][bucket]['raw'] = []
                         values[day][bucket]['raw'].append(int(value))
@@ -76,15 +75,11 @@ class CallHistoryLast5WeeksByDay(luigi.Task):
         
         
         for interval in values[day].keys():
-            print('-------')
-            print(interval)
             interval_calls = []
             results[interval] = {}
-            print(values.keys())
             for each_day in values.keys():
                 raw_interval = values[each_day][interval]['raw']
                 #want the count of the number of call events in each interval more than their actual value
-                print(len(raw_interval))
                 interval_calls.append(len(raw_interval)) 
             results[interval]['mean'] = numpy.mean(interval_calls)
             results[interval]['median'] = numpy.median(interval_calls)
