@@ -12,7 +12,7 @@ class CallHistoryDaily(luigi.Task):
     query = '''SELECT date, value FROM callsoffered2 where group = :group and day = :day'''
     def output(self):
         
-        return luigi.LocalTarget('output/calls_offered_%s.tsv' % self.day)
+        return luigi.LocalTarget('output/calls_offered_%s_%s.tsv' % (self.group, self.day))
         
     def run(self):
         params = dict(day=self.day.isoformat(), group=self.group)
@@ -34,10 +34,10 @@ class CallHistoryLast5WeeksByDay(luigi.Task):
     group = 'support'
     
     today = date.today()
-    interval = timedelta(days=7)
-    weeks = 2   #make it N weeks and change to param
+    interval = timedelta(days=2)
+    weeks = 4   #make it N weeks and change to param
     #python is so lovely
-    dates = [ (today-(index*interval)).isoformat() for index in range(weeks) ]
+    dates = [ (today-(index*interval)) for index in range(weeks) ]
     
     def requires(self):
         return [CallHistoryDaily(self.host, self.port, self.keyspace, date, self.group) for date in self.dates]
@@ -77,10 +77,17 @@ class CallHistoryLast5WeeksByDay(luigi.Task):
         for interval in values[day].keys():
             interval_calls = []
             results[interval] = {}
+            print('values keys! %s' % (values.keys()))
             for each_day in values.keys():
-                raw_interval = values[each_day][interval]['raw']
-                #want the count of the number of call events in each interval more than their actual value
-                interval_calls.append(len(raw_interval)) 
+                print('day %s, interval keys! %s' % (values[day].keys(), values.keys()))
+                try:
+                    raw_interval = values[each_day][interval]['raw']
+                    #want the count of the number of call events in each interval more than their actual value
+                    interval_calls.append(len(raw_interval))
+                except KeyError:
+                    interval_calls.append(0)
+            #need to add the interval as a value because we will need each key as an array
+            results[interval]['interval'] = interval
             results[interval]['mean'] = numpy.mean(interval_calls)
             results[interval]['median'] = numpy.median(interval_calls)
             results[interval]['q1'] = numpy.percentile(interval_calls, 25)
