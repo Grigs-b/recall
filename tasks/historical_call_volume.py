@@ -22,7 +22,7 @@ class CallHistoryDaily(luigi.Task):
         
         with self.output().open('w') as out:
             for row in cursor:
-                db_date = datetime.fromtimestamp(int64_unpack(row[0]) / 1000)
+                db_date = datetime.utcfromtimestamp(int64_unpack(row[0]) / 1000)
                 print >> out, db_date.isoformat(), row[1]
         cursor.close()
         con.close()
@@ -34,8 +34,8 @@ class CallHistoryLast5WeeksByDay(luigi.Task):
     group = 'support'
     
     today = date.today()
-    interval = timedelta(days=2)
-    weeks = 4   #make it N weeks and change to param
+    interval = timedelta(days=7)
+    weeks = 5   #make it N weeks and change to param
     #python is so lovely
     dates = [ (today-(index*interval)) for index in range(weeks) ]
     
@@ -77,14 +77,16 @@ class CallHistoryLast5WeeksByDay(luigi.Task):
         for interval in values[day].keys():
             interval_calls = []
             results[interval] = {}
-            print('values keys! %s' % (values.keys()))
+            
             for each_day in values.keys():
-                print('day %s, interval keys! %s' % (values[day].keys(), values.keys()))
+                #print('day %s, interval keys! %s' % (values[day].keys(), values.keys()))
                 try:
                     raw_interval = values[each_day][interval]['raw']
+                    print('raw interval: [%s/%s]:  %s' % (each_day, interval, len(raw_interval)))
                     #want the count of the number of call events in each interval more than their actual value
                     interval_calls.append(len(raw_interval))
                 except KeyError:
+                    print('KeyError on interval [%s / %s]' % (each_day, interval))
                     interval_calls.append(0)
             #need to add the interval as a value because we will need each key as an array
             results[interval]['interval'] = interval
