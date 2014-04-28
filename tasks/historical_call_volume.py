@@ -42,8 +42,8 @@ class CallHistoryDaily(luigi.Task):
         
 class CallHistoryLastNWeeksByDay(luigi.Task):
     host = luigi.Parameter()
-    port = 9042
-    keyspace = 'inovadata'
+    port = luigi.IntParameter()
+    keyspace = luigi.Parameter()
     orgid = luigi.IntParameter()
     group = luigi.Parameter()
     
@@ -114,27 +114,3 @@ class CallHistoryLastNWeeksByDay(luigi.Task):
                     
         with self.output().open('w') as out:
             out.write(json.dumps(results))
-            
-class CallHistoryInterval(luigi.Task):
-    host = luigi.Parameter()
-    port = luigi.Parameter()
-    keyspace = luigi.Parameter()
-    dates = luigi.DateIntervalParameter()
-    group = luigi.Parameter()
-    
-    query = '''SELECT date, value FROM callsoffered where group = :group and date > :date_a and date < :date_b'''
-    def output(self):
-        
-        return luigi.LocalTarget('output/calls_offered/%s' % self.date_interval)
-        
-    def run(self):
-        params = { 'date_a' : self.dates.date_a, 'date_b' : self.dates.date_b, 'group' : self.group}
-        cluster = Cluster([self.host], self.port)
-        session = cluster.connect()
-        session.set_keyspace(self.keyspace)
-        ret = session.execute(self.query, params)
-        session.shutdown()
-        cluster.shutdown()
-        
-if __name__ == '__main__':
-    luigi.run()
