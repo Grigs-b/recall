@@ -1,6 +1,5 @@
 backports.ssl-match-hostname==3.4.0.2
-cql==1.4.0
+cassandra-driver
 luigi==1.0.12
 numpy==1.8.0
-thrift==0.9.1
 tornado==3.2
